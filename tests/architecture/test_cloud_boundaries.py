@@ -75,6 +75,54 @@ def test_the_provider_detector_has_a_sensitivity_proof() -> None:
     assert _provider_findings(planted) == ("paystack",)
 
 
+def _reservation_findings(text: str) -> tuple[str, ...]:
+    """Return names that would mean Cloud reserves an effect before running it.
+
+    At-most-once execution has one owner fleet-wide, `dotmac_kernel.idempotency`
+    (Starter hard rule 21): nothing is reserved before the effect, and the
+    fingerprint is its own column. An assembly that could claim, lease or
+    reserve would be a second engine deciding the same question, which is the
+    parallel authority this composition exists to prevent.
+
+    Detection is over DEFINED names, not free text, so a docstring explaining
+    the rule does not trip it — the premise is "Cloud defines no such
+    operation", which is enforceable, rather than "Cloud never says the word",
+    which is not.
+    """
+    tree = ast.parse(text)
+    defined: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            defined.add(node.name)
+    return tuple(
+        sorted(
+            name
+            for name in defined
+            if re.search(r"(?:^|_)(claim|lease|reserve|acquire)", name.lower())
+        )
+    )
+
+
+def test_cloud_declares_no_second_idempotency_engine() -> None:
+    findings: dict[str, tuple[str, ...]] = {}
+    for path in sorted(SRC.rglob("*.py")):
+        matches = _reservation_findings(path.read_text(encoding="utf-8"))
+        if matches:
+            findings[str(path.relative_to(REPO))] = matches
+
+    assert findings == {}
+
+
+def test_the_reservation_detector_has_a_sensitivity_proof() -> None:
+    planted = "def claim_next_effect():\n    return None\n"
+
+    assert _reservation_findings(planted) == ("claim_next_effect",)
+
+    # And it must not fire on prose merely naming the rule, or the guard would
+    # forbid documenting the boundary it enforces.
+    assert _reservation_findings('"""Never claim or lease an effect."""\n') == ()
+
+
 def test_integrator_and_v1_exclusions_are_not_composed() -> None:
     distributions = {item.distribution for item in load_manifest()}
 
