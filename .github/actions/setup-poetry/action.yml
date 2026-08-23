@@ -1,0 +1,39 @@
+name: Install pinned Poetry
+description: Install the project-owned Poetry version from a hash-locked wheel set
+
+runs:
+  using: composite
+  steps:
+    - name: Validate the selected bootstrap
+      shell: bash
+      run: |
+        set -euo pipefail
+        req=".github/bootstrap/poetry-requirements-py312.txt"
+        python scripts/check_poetry_toolchain.py --bootstrap "$req"
+        echo "req=$req" >> "$GITHUB_ENV"
+
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/pip
+        key: poetry-bootstrap-${{ runner.os }}-${{ hashFiles('.github/bootstrap/poetry-requirements-py312.txt') }}
+
+    - name: Install Poetry into an isolated job-local environment
+      shell: bash
+      run: |
+        set -euo pipefail
+        venv="${RUNNER_TEMP}/poetry-bootstrap"
+        rm -rf "$venv"
+        python -m venv "$venv"
+        for attempt in 1 2 3; do
+          if "$venv/bin/python" -m pip install --disable-pip-version-check --require-hashes --only-binary=:all: -r "$req"; then
+            echo "${venv}/bin" >> "$GITHUB_PATH"
+            PATH="${venv}/bin:${PATH}" python scripts/check_poetry_toolchain.py --bootstrap "$req" --active
+            "$venv/bin/poetry" config virtualenvs.create true
+            "$venv/bin/poetry" config virtualenvs.in-project true
+            exit 0
+          fi
+          echo "::warning::Poetry bootstrap attempt ${attempt} failed"
+          sleep $((attempt * 5))
+        done
+        echo "::error::Poetry bootstrap failed after three hash-checked attempts"
+        exit 1

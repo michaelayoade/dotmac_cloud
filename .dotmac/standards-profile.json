@@ -1,0 +1,70 @@
+{
+  "schema_version": 9,
+  "profile_id": "dotmac-cloud-engineering-standards",
+  "repository": {
+    "canonical_url": "https://github.com/michaelayoade/dotmac_cloud",
+    "default_branch": "main"
+  },
+  "governance_model": {
+    "kind": "pinned",
+    "canonical_url": "https://github.com/michaelayoade/dotmac_governance",
+    "revision": "e0f636c3f5adea77da136f75f49c2349fbf9eeaa",
+    "source": "docs/adr/0006-cross-repository-engineering-conformance.md",
+    "status": "accepted"
+  },
+  "enforcement_mode": "required",
+  "authorities": [
+    {
+      "authority_id": "cloud-composition-readiness",
+      "subject": "Fail-closed validation of immutable Cloud V1 release evidence and real application activation.",
+      "protected_resources": [
+        "cloud-v1-composition-declaration",
+        "cloud-v1-production-readiness-verdict"
+      ],
+      "owner_component": "composition-gate",
+      "owner_implementation": "src/dotmac_cloud/composition.py",
+      "decision_interface": "dotmac_cloud.composition.evaluate",
+      "canonical_writer_paths": [
+        "src/dotmac_cloud/composition.py",
+        "src/dotmac_cloud/cloud_v1_bom.json"
+      ],
+      "adapter_paths": [
+        "src/dotmac_cloud/__main__.py"
+      ],
+      "drift_test_paths": [
+        "tests/unit/test_composition.py",
+        "tests/architecture/test_cloud_boundaries.py"
+      ]
+    }
+  ],
+  "typed_contract_surfaces": [
+    {
+      "surface_id": "cloud-composition-readiness-contract",
+      "paths": [
+        "src/dotmac_cloud/composition.py"
+      ],
+      "require_public_annotations": true,
+      "forbid_any": true,
+      "require_immutable_records": true
+    }
+  ],
+  "module_declared_vocabularies": [],
+  "testing_kit_boundary": {
+    "test_roots": [
+      "tests"
+    ],
+    "kit_source_roots": [],
+    "conformance_probes": []
+  },
+  "external_connector_surface": {
+    "baselines": {
+      "outbound_transport": 0,
+      "webhook_surface": 0,
+      "provider_credential": 0,
+      "connector_task": 0,
+      "sync_checkpoint": 0,
+      "delivery_retry": 0
+    },
+    "conserved_exclusions": []
+  }
+}
