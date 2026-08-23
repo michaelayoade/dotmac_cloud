@@ -58,7 +58,7 @@ def lock_generator_version(lockfile: str) -> str:
 
 def bootstrap_version(requirements: str) -> str:
     """Return the sole Poetry pin in one hash-locked bootstrap file."""
-    versions = _BOOTSTRAP_POETRY.findall(requirements)
+    versions: list[str] = _BOOTSTRAP_POETRY.findall(requirements)
     if len(versions) != 1:
         _fail(
             "a Poetry bootstrap file must contain exactly one Poetry pin; "
