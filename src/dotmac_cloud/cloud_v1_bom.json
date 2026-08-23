@@ -1,0 +1,221 @@
+{
+  "schema_version": 1,
+  "decision_source": {
+    "repository": "https://github.com/michaelayoade/dotmac_starter_mt",
+    "commit": "64b26751e026aec34e427ac2123f2c38cb20540c",
+    "path": "docs/adr/0030-cloud-commerce-is-composed-from-complete-domain-owners.md"
+  },
+  "components": [
+    {
+      "distribution": "dotmac-auth-oidc",
+      "import_package": "dotmac_auth_oidc",
+      "persistence": "stateless",
+      "availability": "released",
+      "activation": "pending",
+      "release": {
+        "version": "0.1.0a1",
+        "tag": "dotmac-auth-oidc-v0.1.0a1",
+        "peeled_commit": "92d060fc2f886836fac150af41ccca57a529c769"
+      },
+      "blocker": null
+    },
+    {
+      "distribution": "dotmac-billing",
+      "import_package": "dotmac_billing",
+      "persistence": "tenant",
+      "availability": "source-unreleased",
+      "activation": "pending",
+      "release": null,
+      "blocker": "release_withheld_pending_cloud_adapter"
+    },
+    {
+      "distribution": "dotmac-brand-profiles",
+      "import_package": "dotmac_brand_profiles",
+      "persistence": "tenant",
+      "availability": "released",
+      "activation": "pending",
+      "release": {
+        "version": "0.1.0a1",
+        "tag": "dotmac-brand-profiles-v0.1.0a1",
+        "peeled_commit": "ed69f9dfdeea493dab7d7ba25c04e940f0870545"
+      },
+      "blocker": null
+    },
+    {
+      "distribution": "dotmac-collections",
+      "import_package": "dotmac_collections",
+      "persistence": "tenant",
+      "availability": "source-unreleased",
+      "activation": "pending",
+      "release": null,
+      "blocker": "release_withheld_pending_cloud_adapter"
+    },
+    {
+      "distribution": "dotmac-document-rendering",
+      "import_package": "dotmac_document_rendering",
+      "persistence": "stateless",
+      "availability": "source-unreleased",
+      "activation": "pending",
+      "release": null,
+      "blocker": "release_withheld_pending_document_reconciler"
+    },
+    {
+      "distribution": "dotmac-domains",
+      "import_package": "dotmac_domains",
+      "persistence": "tenant",
+      "availability": "source-missing",
+      "activation": "pending",
+      "release": null,
+      "blocker": "source_not_on_main"
+    },
+    {
+      "distribution": "dotmac-durable-timers",
+      "import_package": "dotmac_durable_timers",
+      "persistence": "tenant",
+      "availability": "released",
+      "activation": "pending",
+      "release": {
+        "version": "0.1.0a1",
+        "tag": "dotmac-durable-timers-v0.1.0a1",
+        "peeled_commit": "f7d69f7d3db6a36dcccaa847dff7a37e9c3cd685"
+      },
+      "blocker": null
+    },
+    {
+      "distribution": "dotmac-files",
+      "import_package": "dotmac_files",
+      "persistence": "tenant",
+      "availability": "released",
+      "activation": "pending",
+      "release": {
+        "version": "0.1.0a3",
+        "tag": "dotmac-files-v0.1.0a3",
+        "peeled_commit": "c6ef6cd7b13105bd95c3faf354ffee9032077625"
+      },
+      "blocker": null
+    },
+    {
+      "distribution": "dotmac-fulfillment",
+      "import_package": "dotmac_fulfillment",
+      "persistence": "tenant",
+      "availability": "source-unreleased",
+      "activation": "pending",
+      "release": null,
+      "blocker": "release_withheld_pending_first_participant"
+    },
+    {
+      "distribution": "dotmac-hosting",
+      "import_package": "dotmac_hosting",
+      "persistence": "tenant",
+      "availability": "source-missing",
+      "activation": "pending",
+      "release": null,
+      "blocker": "source_not_on_main"
+    },
+    {
+      "distribution": "dotmac-kernel",
+      "import_package": "dotmac_kernel",
+      "persistence": "foundation",
+      "availability": "released",
+      "activation": "pending",
+      "release": {
+        "version": "0.1.0a94",
+        "tag": "dotmac-kernel-v0.1.0a94",
+        "peeled_commit": "9e717eb88603f6ef61bded23b2aa468fe4533a95"
+      },
+      "blocker": null
+    },
+    {
+      "distribution": "dotmac-numbering",
+      "import_package": "dotmac_numbering",
+      "persistence": "tenant",
+      "availability": "released",
+      "activation": "pending",
+      "release": {
+        "version": "0.1.0a2",
+        "tag": "dotmac-numbering-v0.1.0a2",
+        "peeled_commit": "4c282228b53405442effc4159f5db9d50446d335"
+      },
+      "blocker": null
+    },
+    {
+      "distribution": "dotmac-orders",
+      "import_package": "dotmac_orders",
+      "persistence": "tenant",
+      "availability": "source-missing",
+      "activation": "pending",
+      "release": null,
+      "blocker": "source_not_on_main"
+    },
+    {
+      "distribution": "dotmac-party",
+      "import_package": "dotmac_party",
+      "persistence": "tenant",
+      "availability": "released",
+      "activation": "pending",
+      "release": {
+        "version": "0.1.0a1",
+        "tag": "dotmac-party-v0.1.0a1",
+        "peeled_commit": "20d24703e70e4d361de2f406165df4b36cbee507"
+      },
+      "blocker": null
+    },
+    {
+      "distribution": "dotmac-payments",
+      "import_package": "dotmac_payments",
+      "persistence": "tenant",
+      "availability": "released",
+      "activation": "pending",
+      "release": {
+        "version": "0.1.0a1",
+        "tag": "dotmac-payments-v0.1.0a1",
+        "peeled_commit": "04b9771320b865b66d1322660fc6d3590605c973"
+      },
+      "blocker": null
+    },
+    {
+      "distribution": "dotmac-storefront",
+      "import_package": "dotmac_storefront",
+      "persistence": "stateless",
+      "availability": "source-missing",
+      "activation": "pending",
+      "release": null,
+      "blocker": "product_first_inventory_not_landed"
+    },
+    {
+      "distribution": "dotmac-subscriptions",
+      "import_package": "dotmac_subscriptions",
+      "persistence": "tenant",
+      "availability": "source-unreleased",
+      "activation": "pending",
+      "release": null,
+      "blocker": "release_withheld_pending_cloud_adapter"
+    },
+    {
+      "distribution": "dotmac-tax",
+      "import_package": "dotmac_tax",
+      "persistence": "tenant",
+      "availability": "released",
+      "activation": "pending",
+      "release": {
+        "version": "0.1.0a1",
+        "tag": "dotmac-tax-v0.1.0a1",
+        "peeled_commit": "20d24703e70e4d361de2f406165df4b36cbee507"
+      },
+      "blocker": null
+    },
+    {
+      "distribution": "dotmac-ui",
+      "import_package": "dotmac_ui",
+      "persistence": "stateless",
+      "availability": "released",
+      "activation": "pending",
+      "release": {
+        "version": "0.1.0a7",
+        "tag": "dotmac-ui-v0.1.0a7",
+        "peeled_commit": "042532d2c80ee7a56b14b71269d15459288312c2"
+      },
+      "blocker": null
+    }
+  ]
+}
