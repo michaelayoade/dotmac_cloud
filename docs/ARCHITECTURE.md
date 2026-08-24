@@ -15,9 +15,13 @@ runs connector plugins.
 
 ## Current construction state
 
-The first foundation slice deliberately has no active Dotmac package
-dependencies. src/dotmac_cloud/cloud_v1_bom.json is a fail-closed construction
-ledger:
+The assembly deliberately has no active Dotmac package dependencies yet.
+Fourteen of the nineteen V1 owners now have immutable release evidence, but all
+nineteen remain `pending` and production readiness remains false. The four
+commerce releases added after the foundation — Billing, Collections,
+Subscriptions and Fulfillment — are published artifacts, not adoption.
+
+src/dotmac_cloud/cloud_v1_bom.json is a fail-closed construction ledger:
 
 - released means an immutable tag and peeled commit are recorded;
 - source-unreleased or source-missing names the actual blocker;
@@ -36,6 +40,8 @@ assembly and refuses every unsupported positive claim.
 |---|---|
 | Cloud V1 BOM parsing and production-readiness verdict | dotmac_cloud.composition |
 | Product-local adapter receipts and cross-owner reconciliation | `dotmac_cloud.receipts` |
+| Runtime engine, sessions, transaction completion and tenant database scope | `dotmac_cloud.database` |
+| Durable adapter receipt rows | `dotmac_cloud.receipt_store` over `public.cloud_adapter_receipts` |
 | At-most-once execution of one effect | `dotmac_kernel.idempotency`, never this application |
 | Offer, subscription, order, payment, tax, receivable, dunning, fulfillment, domain, and hosting decisions | Their exact-pinned reusable owner modules |
 | External transport, provider binding, secret materialization, retry, checkpoints, and delivery evidence | Independently deployed Dotmac Integrator |
@@ -74,20 +80,40 @@ at-most-once is a property of a single effect, which one owner can hold, but
 two owners that cannot see each other. Only the assembly composing them can ask
 it without reading another application's tables.
 
-`ReceiptLedger` is the persistence seam. It exposes no reserve operation, and a
-later slice implements it against Cloud's own tenant-scoped, RLS-enforced
-table.
+`ReceiptLedger` is the persistence seam. It exposes no reserve operation.
+`SqlAlchemyReceiptLedger` implements it against Cloud's own tenant-scoped,
+RLS-enforced `public.cloud_adapter_receipts` table.
+
+## Transaction and tenant authority
+
+`dotmac_cloud.database.DatabaseRuntime` is the only runtime code that constructs
+an engine or session factory. `tenant_session` owns transaction completion and
+sets `app.current_tenant` with transaction-local scope before yielding the
+session. Services add and flush; they never commit or roll back. Ending the
+transaction removes the scope before the pooled connection can be reused.
+
+The receipt table is created with `tenant_id UUID NOT NULL`, composite
+tenant-aware uniqueness, ENABLED and FORCED RLS, and its tenant policy in the
+same migration. The online `app_user` role receives only SELECT and INSERT;
+UPDATE, DELETE, TRUNCATE, REFERENCES and TRIGGER are revoked. The migration and
+live PostgreSQL tests prove both catalog state and cross-tenant behavior. There
+is intentionally no unscoped or platform runtime session in this slice.
+
+The migration URL and online URL are installed separately. Migrations use
+`DOTMAC_CLOUD_MIGRATION_DATABASE_URL`; application processes receive only
+`DOTMAC_CLOUD_DATABASE_URL`. Neither has a code default and neither value may be
+logged or committed.
 
 ## Next composition slice
 
-The next slice adds the first typed adapter against a reviewed module contract
-and the durable `ReceiptLedger` behind it. It must keep modules as peers, add
-the module's exact released dependency and tenant-plane selection, bind its
-migration prerequisites, and prove replay and missed-delivery repair against a
-real database. No component becomes composed merely because its source or
-release exists.
+The next slice adds the first typed adapter against the published Billing,
+Subscriptions and Collections contracts. It must keep modules as peers,
+exact-pin each artifact it imports, select each stateful tenant plane, bind its
+migration prerequisites, execute the effect through kernel idempotency and
+write the receipt in the same transaction. Replay and missed-delivery repair
+must pass against PostgreSQL. No component becomes composed merely because its
+release now exists.
 
-Three of the first four commerce adapters are blocked on release, not on
-design: Billing, Subscriptions and Collections are `source-unreleased`, so this
-application cannot exact-pin them. `dotmac-payments` and `dotmac-kernel` are
-released and are therefore the only owners a real adapter can bind today.
+Cloud CI still needs an operator-installed read-only private-index secret before
+it can prove a clean install of those exact artifacts. The secret value never
+belongs in this repository.

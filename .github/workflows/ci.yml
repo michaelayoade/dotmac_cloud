@@ -38,3 +38,49 @@ jobs:
       - run: '[ -d .venv ] || python -m venv .venv'
       - run: poetry install
       - run: make ${{ matrix.target }}
+
+  postgres:
+    name: PostgreSQL migration and tenant isolation
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: cloud_test
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cloud_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DOTMAC_CLOUD_MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/cloud_test
+      TEST_MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/cloud_test
+      TEST_DATABASE_URL: postgresql+psycopg://app_user:app_user@localhost:5432/cloud_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: ./.github/actions/setup-poetry
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock') }}
+      - run: '[ -d .venv ] || python -m venv .venv'
+      - run: poetry install
+      - name: Create the restricted online role
+        env:
+          PGPASSWORD: postgres
+        run: >-
+          psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d cloud_test
+          -c "CREATE ROLE app_user LOGIN PASSWORD 'app_user'
+          NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"
+      - name: Rehearse the complete migration lineage
+        run: |
+          poetry run alembic upgrade head
+          poetry run alembic downgrade base
+          poetry run alembic upgrade head
+      - run: make test-integration

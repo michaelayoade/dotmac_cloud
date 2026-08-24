@@ -23,10 +23,14 @@
       "distribution": "dotmac-billing",
       "import_package": "dotmac_billing",
       "persistence": "tenant",
-      "availability": "source-unreleased",
+      "availability": "released",
       "activation": "pending",
-      "release": null,
-      "blocker": "release_withheld_pending_cloud_adapter"
+      "release": {
+        "version": "0.1.0a1",
+        "tag": "dotmac-billing-v0.1.0a1",
+        "peeled_commit": "92a1626b16d7e068f92536d8cfcb2ef9b6f270c2"
+      },
+      "blocker": null
     },
     {
       "distribution": "dotmac-brand-profiles",
@@ -45,10 +49,14 @@
       "distribution": "dotmac-collections",
       "import_package": "dotmac_collections",
       "persistence": "tenant",
-      "availability": "source-unreleased",
+      "availability": "released",
       "activation": "pending",
-      "release": null,
-      "blocker": "release_withheld_pending_cloud_adapter"
+      "release": {
+        "version": "0.1.0a1",
+        "tag": "dotmac-collections-v0.1.0a1",
+        "peeled_commit": "6ecf518a6985b8bf4b163eccb3de2fef171ecccc"
+      },
+      "blocker": null
     },
     {
       "distribution": "dotmac-document-rendering",
@@ -98,10 +106,14 @@
       "distribution": "dotmac-fulfillment",
       "import_package": "dotmac_fulfillment",
       "persistence": "tenant",
-      "availability": "source-unreleased",
+      "availability": "released",
       "activation": "pending",
-      "release": null,
-      "blocker": "release_withheld_pending_first_participant"
+      "release": {
+        "version": "0.1.0a1",
+        "tag": "dotmac-fulfillment-v0.1.0a1",
+        "peeled_commit": "be02e28d11a0ba849b4974273f5a2d4bd7806a4a"
+      },
+      "blocker": null
     },
     {
       "distribution": "dotmac-hosting",
@@ -186,10 +198,14 @@
       "distribution": "dotmac-subscriptions",
       "import_package": "dotmac_subscriptions",
       "persistence": "tenant",
-      "availability": "source-unreleased",
+      "availability": "released",
       "activation": "pending",
-      "release": null,
-      "blocker": "release_withheld_pending_cloud_adapter"
+      "release": {
+        "version": "0.1.0a1",
+        "tag": "dotmac-subscriptions-v0.1.0a1",
+        "peeled_commit": "ffe483fb53f12dd7aee400a39e0c85ecf308470f"
+      },
+      "blocker": null
     },
     {
       "distribution": "dotmac-tax",

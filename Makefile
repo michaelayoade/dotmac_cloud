@@ -20,7 +20,13 @@ type-check: ## Strict mypy
 	poetry run mypy
 
 test: ## Unit and architecture tests
-	poetry run pytest -q
+	poetry run pytest -q tests/unit tests/architecture
+
+test-integration: ## PostgreSQL migration, RLS, and receipt-ledger canaries
+	poetry run pytest -q tests/integration
+
+migrate: ## Apply Cloud migrations with the separately installed admin URL
+	poetry run alembic upgrade head
 
 readiness-report: ## Report current Cloud V1 composition blockers
 	poetry run python -m dotmac_cloud --json
@@ -30,4 +36,4 @@ production-readiness: ## Fail unless every required owner is released and compos
 
 check: poetry-lock-check lint format-check type-check test readiness-report ## Canonical CI gate
 
-.PHONY: help poetry-lock-check lint format format-check type-check test readiness-report production-readiness check
+.PHONY: help poetry-lock-check lint format format-check type-check test test-integration migrate readiness-report production-readiness check

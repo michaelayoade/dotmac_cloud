@@ -35,6 +35,50 @@
         "tests/unit/test_composition.py",
         "tests/architecture/test_cloud_boundaries.py"
       ]
+    },
+    {
+      "authority_id": "cloud-tenant-database-runtime",
+      "subject": "Cloud-owned engine, session, transaction completion, and tenant database scope.",
+      "protected_resources": [
+        "cloud-runtime-session-factory",
+        "cloud-runtime-transaction-boundary",
+        "cloud-runtime-tenant-scope"
+      ],
+      "owner_component": "database-runtime",
+      "owner_implementation": "src/dotmac_cloud/database.py",
+      "decision_interface": "dotmac_cloud.database.DatabaseRuntime",
+      "canonical_writer_paths": [
+        "src/dotmac_cloud/database.py",
+        "src/dotmac_cloud/runtime.py"
+      ],
+      "adapter_paths": [],
+      "drift_test_paths": [
+        "tests/architecture/test_runtime_boundaries.py",
+        "tests/integration/test_receipt_ledger_postgres.py"
+      ]
+    },
+    {
+      "authority_id": "cloud-adapter-receipt-ledger",
+      "subject": "Tenant-scoped append-only persistence for cross-owner adapter delivery evidence.",
+      "protected_resources": [
+        "cloud-adapter-receipt-contract",
+        "cloud-adapter-receipt-persistence"
+      ],
+      "owner_component": "adapter-receipts",
+      "owner_implementation": "src/dotmac_cloud/receipt_store.py",
+      "decision_interface": "dotmac_cloud.receipt_store.SqlAlchemyReceiptLedger",
+      "canonical_writer_paths": [
+        "src/dotmac_cloud/receipts.py",
+        "src/dotmac_cloud/models.py",
+        "src/dotmac_cloud/receipt_store.py",
+        "alembic/versions/ca_0001_adapter_receipts.py"
+      ],
+      "adapter_paths": [],
+      "drift_test_paths": [
+        "tests/unit/test_receipts.py",
+        "tests/architecture/test_runtime_boundaries.py",
+        "tests/integration/test_receipt_ledger_postgres.py"
+      ]
     }
   ],
   "typed_contract_surfaces": [
@@ -46,6 +90,26 @@
       "require_public_annotations": true,
       "forbid_any": true,
       "require_immutable_records": true
+    },
+    {
+      "surface_id": "cloud-adapter-receipt-contract",
+      "paths": [
+        "src/dotmac_cloud/receipts.py"
+      ],
+      "require_public_annotations": true,
+      "forbid_any": true,
+      "require_immutable_records": true
+    },
+    {
+      "surface_id": "cloud-runtime-contract",
+      "paths": [
+        "src/dotmac_cloud/runtime.py",
+        "src/dotmac_cloud/database.py",
+        "src/dotmac_cloud/receipt_store.py"
+      ],
+      "require_public_annotations": true,
+      "forbid_any": true,
+      "require_immutable_records": false
     }
   ],
   "module_declared_vocabularies": [],
