@@ -85,15 +85,18 @@ jobs:
           psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d cloud_test
           -c "CREATE ROLE app_user LOGIN PASSWORD 'app_user'
           NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"
-      - name: Rehearse both composed migration lineages
-        # TWO lineages now share one revision graph: the kernel base lineage
-        # from the exact-pinned distribution and this assembly's own. `heads`
-        # (plural) applies both; the round trip unwinds them branch by branch,
-        # assembly first, because `ca_0001_receipts` declares `depends_on` the
-        # kernel root that creates the role it grants on.
+      - name: Rehearse every composed migration lineage
+        # FOUR lineages share one revision graph: kernel, Subscriptions,
+        # Billing and this assembly. `heads` applies all four; the round trip
+        # unwinds each dependent branch before the kernel foundation. Keeping
+        # these explicit is evidence that every installed lineage can upgrade
+        # from and downgrade to its own base — `upgrade heads` alone cannot
+        # prove the downgrade path.
         run: |
           poetry run alembic upgrade heads
           poetry run alembic downgrade cloud_assembly@base
+          poetry run alembic downgrade billing@base
+          poetry run alembic downgrade subscriptions@base
           poetry run alembic downgrade kernel@base
           poetry run alembic upgrade heads
       - run: make test-integration

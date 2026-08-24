@@ -7,11 +7,13 @@ import tomllib
 from pathlib import Path
 
 from dotmac_cloud.composition import Activation, Persistence, load_manifest
+from dotmac_cloud.module_planes import MODULE_PLANE_SELECTIONS
 
 REPO = Path(__file__).resolve().parents[2]
 SRC = REPO / "src" / "dotmac_cloud"
 PROFILE = REPO / ".dotmac" / "standards-profile.json"
 STANDARDS_WORKFLOW = REPO / ".github" / "workflows" / "engineering-standards.yml"
+CI_WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
 
 FORBIDDEN_PROVIDER_NAMES = (
     "cocca",
@@ -186,10 +188,31 @@ def test_source_imports_only_activated_dotmac_components() -> None:
         if item.activation is Activation.COMPOSED
     }
     imported: set[str] = set()
-    for path in sorted(SRC.glob("*.py")):
+    # RECURSIVE. A non-recursive glob stopped at the top level, so an adapter in
+    # `src/dotmac_cloud/adapters/` could import an owner this application never
+    # composed and no guard would see it — the exact blindness this test exists
+    # to prevent, one directory deeper.
+    for path in sorted(SRC.rglob("*.py")):
         imported.update(_external_dotmac_imports(path))
 
     assert imported == activated_imports
+
+
+def test_ci_round_trip_unwinds_every_composed_lineage_before_kernel() -> None:
+    """A newly composed lineage cannot be left out of the downgrade proof."""
+    workflow = CI_WORKFLOW.read_text(encoding="utf-8")
+    commands = re.findall(
+        r"poetry run alembic downgrade ([a-z_]+)@base", workflow
+    )
+
+    # Module plane keys are the immutable branch labels used by these exact
+    # released lineages. The foundation must be last because every other
+    # branch declares a logical prerequisite supplied by it.
+    assert commands == [
+        "cloud_assembly",
+        *(sorted(selection.module for selection in MODULE_PLANE_SELECTIONS)),
+        "kernel",
+    ]
 
 
 def test_governance_profile_and_workflow_pin_the_same_revision() -> None:

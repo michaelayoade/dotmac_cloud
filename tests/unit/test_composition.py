@@ -41,10 +41,10 @@ EXPECTED_DISTRIBUTIONS = (
 )
 
 
-# Exactly one component is adopted. Kept as a set rather than folded into the
-# assertions below so that composing a second owner is a deliberate, visible
+# Exactly three components are adopted. Kept as a set rather than folded into
+# the assertions below so that composing another owner is a deliberate, visible
 # edit here — not something a broader change can carry in unnoticed.
-COMPOSED = {"dotmac-kernel"}
+COMPOSED = {"dotmac-billing", "dotmac-kernel", "dotmac-subscriptions"}
 
 
 def test_the_cloud_v1_bom_is_complete_and_sorted() -> None:
@@ -68,16 +68,15 @@ def test_release_evidence_is_not_misreported_as_composition() -> None:
 
     assert report.ready is False
     assert len(report.blockers) == len(EXPECTED_DISTRIBUTIONS) - len(COMPOSED)
-    # Adopting the kernel removed exactly one blocker and no more. Fourteen
-    # released owners are still only released, which is the claim this test
-    # exists to keep honest.
+    # Composing the first commercial hand-off removed exactly two more blockers
+    # and no others. Twelve released owners are still only released, which is
+    # the claim this test exists to keep honest.
     assert {
         blocker.distribution
         for blocker in report.blockers
         if blocker.code == "released_not_composed"
     } == {
         "dotmac-auth-oidc",
-        "dotmac-billing",
         "dotmac-brand-profiles",
         "dotmac-collections",
         "dotmac-document-rendering",
@@ -87,7 +86,6 @@ def test_release_evidence_is_not_misreported_as_composition() -> None:
         "dotmac-numbering",
         "dotmac-party",
         "dotmac-payments",
-        "dotmac-subscriptions",
         "dotmac-tax",
         "dotmac-ui",
     }
@@ -118,7 +116,7 @@ def test_kernel_a94_has_immutable_release_coordinates() -> None:
     )
 
 
-def test_four_commerce_releases_are_recorded_without_claiming_composition() -> None:
+def test_the_four_commerce_releases_keep_their_exact_coordinates() -> None:
     expected = {
         "dotmac-billing": ReleaseEvidence(
             version="0.1.0a1",
@@ -136,16 +134,22 @@ def test_four_commerce_releases_are_recorded_without_claiming_composition() -> N
             peeled_commit="be02e28d11a0ba849b4974273f5a2d4bd7806a4a",
         ),
         "dotmac-subscriptions": ReleaseEvidence(
-            version="0.1.0a1",
-            tag="dotmac-subscriptions-v0.1.0a1",
-            peeled_commit="ffe483fb53f12dd7aee400a39e0c85ecf308470f",
+            version="0.1.0a2",
+            tag="dotmac-subscriptions-v0.1.0a2",
+            peeled_commit="f91253d5e193918507e9f2e0768a76aefe5bbce0",
         ),
     }
     components = {component.distribution: component for component in load_manifest()}
 
     for distribution, release in expected.items():
+        # Composition must never overwrite the evidence that made it possible:
+        # Billing and Subscriptions are adopted now, and their release
+        # coordinates are still exactly what was published.
         assert components[distribution].release == release
-        assert components[distribution].activation is Activation.PENDING
+    # Collections and Fulfillment are released and NOT adopted, which is what
+    # keeps this test honest now that two of the four are composed.
+    assert components["dotmac-collections"].activation is Activation.PENDING
+    assert components["dotmac-fulfillment"].activation is Activation.PENDING
 
 
 def test_document_rendering_release_is_recorded_as_availability_only() -> None:

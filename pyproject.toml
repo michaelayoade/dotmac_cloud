@@ -7,7 +7,9 @@ readme = "README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [
   "alembic>=1.13,<2.0",
+  "dotmac-billing==0.1.0a1",
   "dotmac-kernel==0.1.0a94",
+  "dotmac-subscriptions==0.1.0a2",
   "psycopg[binary]>=3.2,<4.0",
   "sqlalchemy>=2.0,<3.0",
 ]
@@ -20,12 +22,14 @@ include = [
 ]
 requires-poetry = "2.4.1"
 
-# Same-source enrichment for the exact kernel pin declared in
-# `project.dependencies`. The version lives there and is the value the
-# composition guard reads; this entry only says WHICH index resolves it, so the
-# two can never disagree about the version.
+# Same-source enrichment for the exact composed pins declared in
+# `project.dependencies`. Each version lives there and is what the composition
+# guard reads; these entries only say WHICH index resolves them, so the two
+# declarations can never disagree about a version.
 [tool.poetry.dependencies]
+dotmac-billing = { version = "0.1.0a1", source = "forgejo" }
 dotmac-kernel = { version = "0.1.0a94", source = "forgejo" }
+dotmac-subscriptions = { version = "0.1.0a2", source = "forgejo" }
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.13"

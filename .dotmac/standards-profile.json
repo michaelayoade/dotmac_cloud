@@ -79,6 +79,25 @@
         "tests/architecture/test_runtime_boundaries.py",
         "tests/integration/test_receipt_ledger_postgres.py"
       ]
+    },
+    {
+      "authority_id": "cloud-subscriptions-to-billing-handoff",
+      "subject": "Cloud-owned translation, refusal, receipt, acknowledgement, and repair of Subscriptions rated obligations handed to Billing.",
+      "protected_resources": [
+        "subscriptions-to-billing-contract-translation",
+        "subscriptions-to-billing-delivery-reconciliation"
+      ],
+      "owner_component": "subscriptions-to-billing-adapter",
+      "owner_implementation": "src/dotmac_cloud/adapters/subscriptions_to_billing.py",
+      "decision_interface": "dotmac_cloud.adapters.subscriptions_to_billing.drain_rated_obligations",
+      "canonical_writer_paths": [
+        "src/dotmac_cloud/adapters/subscriptions_to_billing.py"
+      ],
+      "adapter_paths": [],
+      "drift_test_paths": [
+        "tests/unit/test_subscriptions_to_billing_mapping.py",
+        "tests/integration/test_subscriptions_to_billing_postgres.py"
+      ]
     }
   ],
   "typed_contract_surfaces": [
@@ -110,6 +129,15 @@
       "require_public_annotations": true,
       "forbid_any": true,
       "require_immutable_records": false
+    },
+    {
+      "surface_id": "cloud-subscriptions-to-billing-contract",
+      "paths": [
+        "src/dotmac_cloud/adapters/subscriptions_to_billing.py"
+      ],
+      "require_public_annotations": true,
+      "forbid_any": true,
+      "require_immutable_records": true
     }
   ],
   "module_declared_vocabularies": [],

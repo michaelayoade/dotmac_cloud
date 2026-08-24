@@ -16,19 +16,20 @@ runs connector plugins.
 ## Current construction state
 
 Fifteen of the nineteen V1 owners have immutable release evidence and exactly
-ONE — `dotmac-kernel` — is `composed`. The other fourteen releases are published
-artifacts, not adoption; production readiness remains false with eighteen
-blockers, and the four still-unavailable owners keep it that way regardless.
+THREE — `dotmac-kernel`, `dotmac-subscriptions`, and `dotmac-billing` — are
+`composed`. The other twelve releases are published artifacts, not adoption;
+production readiness remains false with sixteen blockers, and the four
+still-unavailable owners keep it that way regardless.
 
-The kernel is composed in the full sense the ledger requires: exact-pinned at
-`0.1.0a94` in `project.dependencies`, resolved from the private index, imported
-by real application code, and running its migration lineage in this database.
-Composition is not a label. The two guards in
+Each composed owner is exact-pinned in `project.dependencies`, resolved from
+the private index, imported by real application code, and runs its own migration
+lineage in this database. The kernel is pinned at `0.1.0a94`, Subscriptions at
+`0.1.0a2`, and Billing at `0.1.0a1`. Composition is not a label. The two guards in
 `tests/architecture/test_cloud_boundaries.py` make `composed`, the exact pin and
 the real import one indivisible fact: the set of exact Dotmac dependencies must
-equal the composed set, and so must the set of Dotmac imports in `src/`. No
-component can be marked adopted without being used, and none can be quietly
-installed without being declared.
+equal the composed set, and so must the recursively discovered set of Dotmac
+imports in `src/`. No component can be marked adopted without being used, and
+none can be quietly installed without being declared.
 
 src/dotmac_cloud/cloud_v1_bom.json is a fail-closed construction ledger:
 
@@ -53,7 +54,11 @@ assembly and refuses every unsupported positive claim.
 | Durable adapter receipt rows | `dotmac_cloud.receipt_store` over `public.cloud_adapter_receipts` |
 | At-most-once execution of one effect | `dotmac_kernel.idempotency`, never this application — composed and in use |
 | Tenant identity, database roles, `app.current_tenant` scope and the idempotency ledger schema | The kernel base migration lineage, run in this database |
-| Offer, subscription, order, payment, tax, receivable, dunning, fulfillment, domain, and hosting decisions | Their exact-pinned reusable owner modules |
+| Offer versions, subscription contract versions, rating cadence and rated-obligation outputs | `dotmac-subscriptions` |
+| Billing accounts and acceptance of operational receivables | `dotmac-billing` |
+| Subscription-to-billing-account association | Cloud, through the `BillingAccountResolver` port; neither module may infer it |
+| Tax outcome for one rated obligation | The caller-supplied `TaxOutcome` pending composition of `dotmac-tax`; an unexplained zero is refused |
+| Order, payment, tax-policy, dunning, fulfillment, domain, and hosting decisions | Their reusable owner modules; still uncomposed here |
 | External transport, provider binding, secret materialization, retry, checkpoints, and delivery evidence | Independently deployed Dotmac Integrator |
 
 ## Adapter receipts and reconciliation
@@ -107,6 +112,32 @@ replay and divergence refusal were the same mechanism under a different name,
 and `ReceiptConflict` — an assembly-owned verdict on a question the kernel owns
 — no longer exists.
 
+## Subscriptions to Billing hand-off
+
+`dotmac_cloud.adapters.subscriptions_to_billing` is the first composed
+commercial hand-off. It consumes Subscriptions'
+`RatedObligationOutputV1`, translates it into Billing's
+`AcceptRatedObligationV1`, asks Billing to accept it, records Cloud's adapter
+receipt, and acknowledges the output back to Subscriptions in one caller-owned
+transaction. The modules remain peers and never import each other; only the
+Cloud adapter imports their published surfaces.
+
+The adapter refuses to invent two missing facts. The billing account is a
+Cloud-owned local association resolved through an injected
+`BillingAccountResolver`; no association produces a recorded refusal. Tax is an
+explicit `TaxOutcome`; zero tax without a reason, non-zero tax without applied
+snapshots, and a currency mismatch are all refused. A refusal is not
+acknowledged, so it stays visible to Subscriptions' repair reader while the
+receipt prevents the same observation from masquerading as unseen work.
+
+`drain_rated_obligations` is both the delivery and repair path. Subscriptions
+keeps an output visible until acknowledgement, while the kernel-owned
+at-most-once ledger turns a repeated identical receipt into a replay and rejects
+a changed fingerprint. PostgreSQL canaries prove replay, conflict, transaction
+rollback, missed-delivery repair, and tenant isolation against the exact
+released packages. This is local application composition only: it moves no
+authority or writer in Dotmac Sub and introduces no provider transport.
+
 ## Transaction and tenant authority
 
 `dotmac_cloud.database.DatabaseRuntime` is the only runtime code that constructs
@@ -115,15 +146,19 @@ sets `app.current_tenant` with transaction-local scope before yielding the
 session. Services add and flush; they never commit or roll back. Ending the
 transaction removes the scope before the pooled connection can be reused.
 
-Two lineages share one revision graph: the kernel base lineage, shipped as
-package data inside the exact-pinned distribution, and this assembly's own.
-`alembic/env.py` appends the kernel's location rather than `alembic.ini` naming
-it, because that path depends on the virtualenv layout and interpreter version.
-Ordering is a declared `depends_on` from the assembly's own migration onto the
-kernel ROOT revision that creates `app_user` — not onto the kernel head, which
-would silently re-order on the next kernel release. Cloud never edits a kernel
-revision. Both branches are applied with `alembic upgrade heads` and the CI
-round trip unwinds them branch by branch, assembly first.
+Four lineages share one revision graph: the kernel foundation, Subscriptions,
+Billing, and this assembly's own. `alembic/env.py` appends the installed
+packages' locations to the live `ScriptDirectory` rather than rewriting
+`version_locations` after Alembic has already read it. Cloud never edits a
+foreign revision.
+
+Modules declare the database effects they require, and
+`dotmac_cloud.migration_bindings` binds those names to the exact kernel
+revisions that make each effect whole. It does not bind to a moving head.
+`dotmac_cloud.module_planes` explicitly selects the tenant plane for both
+business modules before the graph is built. All four branches are applied with
+`alembic upgrade heads`; missing distributions, bindings, plane selections or
+lineages fail rather than being skipped.
 
 Cloud and the kernel agree on the tenant scope by contract, not by coincidence:
 the kernel's RLS reads `current_setting('app.current_tenant')`, which is exactly
@@ -143,13 +178,14 @@ logged or committed.
 
 ## Next composition slice
 
-The next slice adds the first typed adapter against the published Billing,
-Subscriptions and Collections contracts. It must keep modules as peers,
-exact-pin each artifact it imports, select each stateful tenant plane, bind its
-migration prerequisites, execute the effect through kernel idempotency and
-write the receipt in the same transaction. Replay and missed-delivery repair
-must pass against PostgreSQL. No component becomes composed merely because its
-release now exists.
+The next commercial slice should compose the tax decision before exposing the
+rating-to-billing hand-off through an online or scheduled entry point. The
+current explicit `TaxOutcome` seam keeps that work honest: a production caller
+cannot silently turn an absent tax owner into zero tax. Collections follows the
+operational receivable owned by Billing; it does not redefine Billing's
+receivable contract or become a second writer. Every added owner still requires
+its exact pin, tenant-plane selection, lineage, binding, real adapter and
+PostgreSQL proof in one reviewed change.
 
 Cloud CI resolves the private index with an operator-installed read-only
 `FORGEJO_READ_TOKEN`, held only as a repository secret. The value never belongs
