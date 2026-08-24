@@ -16,10 +16,13 @@ runs connector plugins.
 ## Current construction state
 
 The assembly deliberately has no active Dotmac package dependencies yet.
-Fourteen of the nineteen V1 owners now have immutable release evidence, but all
+Fifteen of the nineteen V1 owners now have immutable release evidence, but all
 nineteen remain `pending` and production readiness remains false. The four
 commerce releases added after the foundation — Billing, Collections,
-Subscriptions and Fulfillment — are published artifacts, not adoption.
+Subscriptions and Fulfillment — and the stateless Document Rendering release
+recorded after them are published artifacts, not adoption. Document Rendering's
+former blocker, `release_withheld_pending_document_reconciler`, is cleared by
+the release itself; nothing about this application's activation changed.
 
 src/dotmac_cloud/cloud_v1_bom.json is a fail-closed construction ledger:
 
