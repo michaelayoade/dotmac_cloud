@@ -133,7 +133,7 @@
       "import_package": "dotmac_kernel",
       "persistence": "foundation",
       "availability": "released",
-      "activation": "pending",
+      "activation": "composed",
       "release": {
         "version": "0.1.0a94",
         "tag": "dotmac-kernel-v0.1.0a94",

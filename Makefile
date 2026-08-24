@@ -25,8 +25,8 @@ test: ## Unit and architecture tests
 test-integration: ## PostgreSQL migration, RLS, and receipt-ledger canaries
 	poetry run pytest -q tests/integration
 
-migrate: ## Apply Cloud migrations with the separately installed admin URL
-	poetry run alembic upgrade head
+migrate: ## Apply both composed migration lineages with the admin URL
+	poetry run alembic upgrade heads
 
 readiness-report: ## Report current Cloud V1 composition blockers
 	poetry run python -m dotmac_cloud --json

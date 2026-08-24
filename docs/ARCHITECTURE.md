@@ -15,14 +15,20 @@ runs connector plugins.
 
 ## Current construction state
 
-The assembly deliberately has no active Dotmac package dependencies yet.
-Fifteen of the nineteen V1 owners now have immutable release evidence, but all
-nineteen remain `pending` and production readiness remains false. The four
-commerce releases added after the foundation — Billing, Collections,
-Subscriptions and Fulfillment — and the stateless Document Rendering release
-recorded after them are published artifacts, not adoption. Document Rendering's
-former blocker, `release_withheld_pending_document_reconciler`, is cleared by
-the release itself; nothing about this application's activation changed.
+Fifteen of the nineteen V1 owners have immutable release evidence and exactly
+ONE — `dotmac-kernel` — is `composed`. The other fourteen releases are published
+artifacts, not adoption; production readiness remains false with eighteen
+blockers, and the four still-unavailable owners keep it that way regardless.
+
+The kernel is composed in the full sense the ledger requires: exact-pinned at
+`0.1.0a94` in `project.dependencies`, resolved from the private index, imported
+by real application code, and running its migration lineage in this database.
+Composition is not a label. The two guards in
+`tests/architecture/test_cloud_boundaries.py` make `composed`, the exact pin and
+the real import one indivisible fact: the set of exact Dotmac dependencies must
+equal the composed set, and so must the set of Dotmac imports in `src/`. No
+component can be marked adopted without being used, and none can be quietly
+installed without being declared.
 
 src/dotmac_cloud/cloud_v1_bom.json is a fail-closed construction ledger:
 
@@ -45,7 +51,8 @@ assembly and refuses every unsupported positive claim.
 | Product-local adapter receipts and cross-owner reconciliation | `dotmac_cloud.receipts` |
 | Runtime engine, sessions, transaction completion and tenant database scope | `dotmac_cloud.database` |
 | Durable adapter receipt rows | `dotmac_cloud.receipt_store` over `public.cloud_adapter_receipts` |
-| At-most-once execution of one effect | `dotmac_kernel.idempotency`, never this application |
+| At-most-once execution of one effect | `dotmac_kernel.idempotency`, never this application — composed and in use |
+| Tenant identity, database roles, `app.current_tenant` scope and the idempotency ledger schema | The kernel base migration lineage, run in this database |
 | Offer, subscription, order, payment, tax, receivable, dunning, fulfillment, domain, and hosting decisions | Their exact-pinned reusable owner modules |
 | External transport, provider binding, secret materialization, retry, checkpoints, and delivery evidence | Independently deployed Dotmac Integrator |
 
@@ -87,6 +94,19 @@ it without reading another application's tables.
 `SqlAlchemyReceiptLedger` implements it against Cloud's own tenant-scoped,
 RLS-enforced `public.cloud_adapter_receipts` table.
 
+Its append path now delegates the at-most-once decision to
+`dotmac_kernel.idempotency.execute_once`, as this document said it would once
+the kernel became composed. Cloud supplies two things and decides neither: the
+identity of the hand-off (a digest over adapter, owner, ref and version, because
+`source_ref` alone can exceed the kernel's key limit and a truncated key would
+merge two distinct facts) and a fingerprint of what was handled (the publisher's
+content digest together with this application's outcome). The receipt row and
+the ledger row are written in the same transaction. What was retired is the
+point: the previous hand-rolled lookup, savepoint insert, `IntegrityError`
+replay and divergence refusal were the same mechanism under a different name,
+and `ReceiptConflict` — an assembly-owned verdict on a question the kernel owns
+— no longer exists.
+
 ## Transaction and tenant authority
 
 `dotmac_cloud.database.DatabaseRuntime` is the only runtime code that constructs
@@ -94,6 +114,20 @@ an engine or session factory. `tenant_session` owns transaction completion and
 sets `app.current_tenant` with transaction-local scope before yielding the
 session. Services add and flush; they never commit or roll back. Ending the
 transaction removes the scope before the pooled connection can be reused.
+
+Two lineages share one revision graph: the kernel base lineage, shipped as
+package data inside the exact-pinned distribution, and this assembly's own.
+`alembic/env.py` appends the kernel's location rather than `alembic.ini` naming
+it, because that path depends on the virtualenv layout and interpreter version.
+Ordering is a declared `depends_on` from the assembly's own migration onto the
+kernel ROOT revision that creates `app_user` — not onto the kernel head, which
+would silently re-order on the next kernel release. Cloud never edits a kernel
+revision. Both branches are applied with `alembic upgrade heads` and the CI
+round trip unwinds them branch by branch, assembly first.
+
+Cloud and the kernel agree on the tenant scope by contract, not by coincidence:
+the kernel's RLS reads `current_setting('app.current_tenant')`, which is exactly
+the setting `tenant_session` installs.
 
 The receipt table is created with `tenant_id UUID NOT NULL`, composite
 tenant-aware uniqueness, ENABLED and FORCED RLS, and its tenant policy in the
@@ -117,6 +151,6 @@ write the receipt in the same transaction. Replay and missed-delivery repair
 must pass against PostgreSQL. No component becomes composed merely because its
 release now exists.
 
-Cloud CI still needs an operator-installed read-only private-index secret before
-it can prove a clean install of those exact artifacts. The secret value never
-belongs in this repository.
+Cloud CI resolves the private index with an operator-installed read-only
+`FORGEJO_READ_TOKEN`, held only as a repository secret. The value never belongs
+in this repository, and `ci-reader` holds read access and nothing else.
