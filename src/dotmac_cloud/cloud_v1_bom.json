@@ -24,7 +24,7 @@
       "import_package": "dotmac_billing",
       "persistence": "tenant",
       "availability": "released",
-      "activation": "pending",
+      "activation": "composed",
       "release": {
         "version": "0.1.0a1",
         "tag": "dotmac-billing-v0.1.0a1",
@@ -203,11 +203,11 @@
       "import_package": "dotmac_subscriptions",
       "persistence": "tenant",
       "availability": "released",
-      "activation": "pending",
+      "activation": "composed",
       "release": {
-        "version": "0.1.0a1",
-        "tag": "dotmac-subscriptions-v0.1.0a1",
-        "peeled_commit": "ffe483fb53f12dd7aee400a39e0c85ecf308470f"
+        "version": "0.1.0a2",
+        "tag": "dotmac-subscriptions-v0.1.0a2",
+        "peeled_commit": "f91253d5e193918507e9f2e0768a76aefe5bbce0"
       },
       "blocker": null
     },
