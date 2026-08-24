@@ -62,6 +62,7 @@ def test_release_evidence_is_not_misreported_as_composition() -> None:
         "dotmac-billing",
         "dotmac-brand-profiles",
         "dotmac-collections",
+        "dotmac-document-rendering",
         "dotmac-durable-timers",
         "dotmac-files",
         "dotmac-fulfillment",
@@ -115,6 +116,25 @@ def test_four_commerce_releases_are_recorded_without_claiming_composition() -> N
     for distribution, release in expected.items():
         assert components[distribution].release == release
         assert components[distribution].activation is Activation.PENDING
+
+
+def test_document_rendering_release_is_recorded_as_availability_only() -> None:
+    """A stateless owner's release is evidence, never activation."""
+    component = next(
+        item
+        for item in load_manifest()
+        if item.distribution == "dotmac-document-rendering"
+    )
+
+    assert component.persistence is Persistence.STATELESS
+    assert component.availability is Availability.RELEASED
+    assert component.blocker is None
+    assert component.release == ReleaseEvidence(
+        version="0.1.0a1",
+        tag="dotmac-document-rendering-v0.1.0a1",
+        peeled_commit="6edaac845f3ced4270bd23edb72c4aa8cf8315e2",
+    )
+    assert component.activation is Activation.PENDING
 
 
 def test_production_gate_refuses_the_foundation_state() -> None:
