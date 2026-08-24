@@ -41,18 +41,36 @@ EXPECTED_DISTRIBUTIONS = (
 )
 
 
+# Exactly one component is adopted. Kept as a set rather than folded into the
+# assertions below so that composing a second owner is a deliberate, visible
+# edit here — not something a broader change can carry in unnoticed.
+COMPOSED = {"dotmac-kernel"}
+
+
 def test_the_cloud_v1_bom_is_complete_and_sorted() -> None:
     components = load_manifest()
 
     assert tuple(item.distribution for item in components) == EXPECTED_DISTRIBUTIONS
-    assert all(item.activation is Activation.PENDING for item in components)
+    assert {
+        item.distribution
+        for item in components
+        if item.activation is Activation.COMPOSED
+    } == COMPOSED
+    assert all(
+        item.activation is Activation.PENDING
+        for item in components
+        if item.distribution not in COMPOSED
+    )
 
 
 def test_release_evidence_is_not_misreported_as_composition() -> None:
     report = evaluate()
 
     assert report.ready is False
-    assert len(report.blockers) == len(EXPECTED_DISTRIBUTIONS)
+    assert len(report.blockers) == len(EXPECTED_DISTRIBUTIONS) - len(COMPOSED)
+    # Adopting the kernel removed exactly one blocker and no more. Fourteen
+    # released owners are still only released, which is the claim this test
+    # exists to keep honest.
     assert {
         blocker.distribution
         for blocker in report.blockers
@@ -66,7 +84,6 @@ def test_release_evidence_is_not_misreported_as_composition() -> None:
         "dotmac-durable-timers",
         "dotmac-files",
         "dotmac-fulfillment",
-        "dotmac-kernel",
         "dotmac-numbering",
         "dotmac-party",
         "dotmac-payments",
@@ -74,6 +91,19 @@ def test_release_evidence_is_not_misreported_as_composition() -> None:
         "dotmac-tax",
         "dotmac-ui",
     }
+
+
+def test_the_composed_kernel_still_carries_its_release_evidence() -> None:
+    """Composition must never overwrite the evidence that made it possible."""
+    kernel = next(
+        item for item in load_manifest() if item.distribution == "dotmac-kernel"
+    )
+
+    assert kernel.activation is Activation.COMPOSED
+    assert kernel.availability is Availability.RELEASED
+    assert kernel.release is not None
+    assert kernel.release.version == "0.1.0a94"
+    assert kernel.blocker is None
 
 
 def test_kernel_a94_has_immutable_release_coordinates() -> None:

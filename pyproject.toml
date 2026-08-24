@@ -7,6 +7,7 @@ readme = "README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [
   "alembic>=1.13,<2.0",
+  "dotmac-kernel==0.1.0a94",
   "psycopg[binary]>=3.2,<4.0",
   "sqlalchemy>=2.0,<3.0",
 ]
@@ -19,11 +20,27 @@ include = [
 ]
 requires-poetry = "2.4.1"
 
+# Same-source enrichment for the exact kernel pin declared in
+# `project.dependencies`. The version lives there and is the value the
+# composition guard reads; this entry only says WHICH index resolves it, so the
+# two can never disagree about the version.
+[tool.poetry.dependencies]
+dotmac-kernel = { version = "0.1.0a94", source = "forgejo" }
+
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.13"
 pytest = "^8.3"
 pytest-cov = "^6.0"
 ruff = "^0.8"
+
+# The private Dotmac index. `explicit` means Poetry consults it ONLY for a
+# dependency that names it above — PyPI resolution for every third-party
+# package is unchanged, and a typosquat on the public index cannot shadow a
+# Dotmac distribution.
+[[tool.poetry.source]]
+name = "forgejo"
+url = "https://registry.dotmac.io/api/packages/dotmac/pypi/simple/"
+priority = "explicit"
 
 [build-system]
 requires = ["poetry-core>=1.9"]

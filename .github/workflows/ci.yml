@@ -10,6 +10,13 @@ on:
 permissions:
   contents: read
 
+# Read-only credentials for the private Dotmac index, which resolves the exact
+# `dotmac-kernel` pin. `ci-reader` holds read:package and nothing else; the
+# value lives only in repository secrets and is never printed.
+env:
+  POETRY_HTTP_BASIC_FORGEJO_USERNAME: ci-reader
+  POETRY_HTTP_BASIC_FORGEJO_PASSWORD: ${{ secrets.FORGEJO_READ_TOKEN }}
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -78,9 +85,15 @@ jobs:
           psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d cloud_test
           -c "CREATE ROLE app_user LOGIN PASSWORD 'app_user'
           NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS"
-      - name: Rehearse the complete migration lineage
+      - name: Rehearse both composed migration lineages
+        # TWO lineages now share one revision graph: the kernel base lineage
+        # from the exact-pinned distribution and this assembly's own. `heads`
+        # (plural) applies both; the round trip unwinds them branch by branch,
+        # assembly first, because `ca_0001_receipts` declares `depends_on` the
+        # kernel root that creates the role it grants on.
         run: |
-          poetry run alembic upgrade head
-          poetry run alembic downgrade base
-          poetry run alembic upgrade head
+          poetry run alembic upgrade heads
+          poetry run alembic downgrade cloud_assembly@base
+          poetry run alembic downgrade kernel@base
+          poetry run alembic upgrade heads
       - run: make test-integration

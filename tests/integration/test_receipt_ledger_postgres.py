@@ -5,13 +5,14 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
+from dotmac_kernel.idempotency import IdempotencyConflict
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
 
 from dotmac_cloud.database import DatabaseRuntime
 from dotmac_cloud.models import AdapterReceiptRow
-from dotmac_cloud.receipt_store import ReceiptConflict, SqlAlchemyReceiptLedger
+from dotmac_cloud.receipt_store import RECEIPT_SCOPE, SqlAlchemyReceiptLedger
 from dotmac_cloud.receipts import (
     AdapterReceipt,
     FactKey,
@@ -19,8 +20,13 @@ from dotmac_cloud.receipts import (
     SourceFact,
 )
 
+# Kept in step with `conftest.py`, which seeds these two tenants: `tests` is not
+# an importable package, so the canary states its own subjects and the seeding
+# fixture states the same two. `test_the_seeded_tenants_match_the_canaries`
+# fails if they ever drift.
 TENANT_A = UUID("11111111-1111-4111-8111-111111111111")
 TENANT_B = UUID("22222222-2222-4222-8222-222222222222")
+
 NOW = datetime(2026, 8, 24, 1, 0, tzinfo=UTC)
 
 
@@ -66,12 +72,25 @@ def test_receipt_replay_is_deduplicated_and_conflicting_content_is_refused(
         rows = ledger.receipts_for(original.adapter, (original.fact.key,))
         assert rows == (original,)
 
+    # The refusal is now the KERNEL's verdict. Cloud supplies the identity and
+    # a digest of what it handled; whether a returning key carries the same
+    # request is decided in one place fleet-wide.
     with (
-        pytest.raises(ReceiptConflict, match="different fingerprint"),
+        pytest.raises(IdempotencyConflict, match="different request"),
         runtime.tenant_session(TENANT_A) as db,
     ):
         SqlAlchemyReceiptLedger(db, TENANT_A).append(
             _receipt(fingerprint="sha256:changed")
+        )
+
+    # A changed OUTCOME for the same fact version is divergence too, not a
+    # duplicate: an adapter that already acted cannot un-decide.
+    with (
+        pytest.raises(IdempotencyConflict, match="different request"),
+        runtime.tenant_session(TENANT_A) as db,
+    ):
+        SqlAlchemyReceiptLedger(db, TENANT_A).append(
+            _receipt(outcome=ReceiptOutcome.REFUSED)
         )
 
 
@@ -189,3 +208,64 @@ def test_live_catalog_enforces_force_rls_and_append_only_role(
         "REFERENCES": False,
         "TRIGGER": False,
     }
+
+
+def test_the_seeded_tenants_match_the_canaries(admin_engine: Engine) -> None:
+    """The seeding fixture and this module must name the same two tenants.
+
+    `idempotency_records.tenant_id` is a FOREIGN KEY to `tenants`, so a canary
+    whose tenant was never seeded fails deep inside a flush with a constraint
+    error that reads like a product defect. This says so directly instead.
+    """
+    with admin_engine.connect() as connection:
+        seeded = set(
+            connection.scalars(
+                text("SELECT id FROM tenants WHERE id = ANY(:ids)"),
+                {"ids": [TENANT_A, TENANT_B]},
+            )
+        )
+
+    assert seeded == {TENANT_A, TENANT_B}
+
+
+def test_the_write_path_spends_a_kernel_idempotency_key(
+    runtime: DatabaseRuntime,
+    admin_engine: Engine,
+) -> None:
+    """Proof of delegation, not just of behaviour.
+
+    Deduplication could be produced by the receipt table's own unique
+    constraint, so an assertion about receipt counts alone would still pass if
+    this module quietly kept a second engine. This asserts the KERNEL ledger
+    row exists and that a replay spends no second key.
+    """
+    receipt = _receipt(source_ref="delegated")
+
+    with runtime.tenant_session(TENANT_A) as db:
+        SqlAlchemyReceiptLedger(db, TENANT_A).append(receipt)
+    with runtime.tenant_session(TENANT_A) as db:
+        SqlAlchemyReceiptLedger(db, TENANT_A).append(receipt)
+
+    with admin_engine.connect() as connection:
+        ledger = connection.execute(
+            text(
+                "SELECT scope, operation, status, fingerprint FROM "
+                "idempotency_records WHERE tenant_id = :tenant"
+            ),
+            {"tenant": TENANT_A},
+        ).all()
+        receipts = connection.scalar(
+            text(
+                "SELECT count(*) FROM cloud_adapter_receipts "
+                "WHERE tenant_id = :tenant"
+            ),
+            {"tenant": TENANT_A},
+        )
+
+    assert len(ledger) == 1
+    scope, operation, status, fingerprint = ledger[0]
+    assert scope == RECEIPT_SCOPE
+    assert operation == f"receipt:{receipt.adapter}"
+    assert status == "executed"
+    assert fingerprint is not None
+    assert receipts == 1

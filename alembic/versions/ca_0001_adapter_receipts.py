@@ -10,7 +10,18 @@ from alembic import op
 revision: str = "ca_0001_receipts"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = "cloud_assembly"
-depends_on: str | Sequence[str] | None = None
+# The assembly binds its own ordering onto the kernel lineage. This migration
+# REVOKEs and GRANTs on `app_user` and enforces RLS against `app.current_tenant`;
+# kernel `0001_initial_tenant_schema` is what creates that role. Without the
+# binding the two lineages are independent roots and Alembic may walk this one
+# first, where the GRANT fails against a role that does not exist yet.
+#
+# Naming a kernel revision is the ASSEMBLY's prerogative, not a module's: Cloud
+# is the composer that decides which foundation it runs on. It is deliberately
+# the ROOT kernel revision rather than the head — this table needs the role and
+# the tenant scope, not every later kernel table, and binding to the head would
+# silently re-order on the next kernel release.
+depends_on: str | Sequence[str] | None = ("0001_initial_tenant_schema",)
 
 TABLE = "cloud_adapter_receipts"
 POLICY = "cloud_adapter_receipts_tenant_isolation"

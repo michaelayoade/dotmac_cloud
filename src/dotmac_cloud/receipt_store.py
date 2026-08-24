@@ -1,22 +1,71 @@
-"""PostgreSQL implementation of Cloud's tenant-scoped ReceiptLedger seam."""
+"""PostgreSQL implementation of Cloud's tenant-scoped ReceiptLedger seam.
+
+The append path does NOT decide at-most-once for itself. It delegates to
+``dotmac_kernel.idempotency.execute_once``, the single owner of that decision
+fleet-wide (Starter ADR-0014), and supplies only what an assembly is entitled
+to supply: the identity of the hand-off and a fingerprint of what was handled.
+
+Before the kernel was composed this module carried its own lookup, savepoint
+insert, ``IntegrityError`` replay and divergence refusal. That is the same
+mechanism under a different name — a second engine answering "has this been
+done" inside an assembly, which is exactly the parallel authority this
+composition exists to prevent. It is now one ledger row in
+``idempotency_records`` and one receipt row written in the SAME transaction.
+"""
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from uuid import UUID
 
+from dotmac_kernel.fingerprints import fingerprint_of
+from dotmac_kernel.idempotency import IdempotencyConflict, execute_once
 from sqlalchemy import select, tuple_
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from dotmac_cloud.models import AdapterReceiptRow
 from dotmac_cloud.receipts import AdapterReceipt, FactKey
 
-__all__ = ["ReceiptConflict", "SqlAlchemyReceiptLedger"]
+__all__ = ["RECEIPT_SCOPE", "IdempotencyConflict", "SqlAlchemyReceiptLedger"]
+
+# The operation family this ledger spends idempotency keys on. An open string,
+# not an enum, per the kernel's registry principle (ADR-0008). Deliberately not
+# an endpoint or a transport name: the same hand-off reached through a poll, a
+# webhook or a repair job must land on the same ledger entry.
+RECEIPT_SCOPE = "cloud.adapter_receipt"
 
 
-class ReceiptConflict(ValueError):
-    """One exact fact identity was reused with different evidence."""
+def _identity_key(receipt: AdapterReceipt) -> str:
+    """Return the idempotency key for one exact adapter hand-off.
+
+    A digest rather than a readable composite because the parts are unbounded
+    against the kernel's 200-character key limit — ``source_ref`` alone may be
+    255. Truncating a readable key would silently merge two distinct facts into
+    one ledger entry, which is the precise failure the ledger exists to stop.
+    ``operation_name`` carries the human-readable "what was this key spent on".
+    """
+    return fingerprint_of(
+        {
+            "adapter": receipt.adapter,
+            "source_owner": receipt.fact.key.source_owner,
+            "source_ref": receipt.fact.key.source_ref,
+            "source_version": receipt.fact.source_version,
+        }
+    )
+
+
+def _handled_fingerprint(receipt: AdapterReceipt) -> str:
+    """Return a digest of WHAT was handled, so a replay of something else fails.
+
+    It covers the publisher's own content digest AND this application's outcome.
+    The content digest alone would let the same fact version be recorded first
+    as applied and later as refused without complaint, and an adapter that
+    changed its mind about a fact it already acted on is a defect, not a
+    duplicate.
+    """
+    return fingerprint_of(
+        {"content": receipt.fact.fingerprint, "outcome": receipt.outcome.value}
+    )
 
 
 class SqlAlchemyReceiptLedger:
@@ -58,47 +107,30 @@ class SqlAlchemyReceiptLedger:
         return tuple(row.to_receipt() for row in rows)
 
     def append(self, receipt: AdapterReceipt) -> None:
-        """Append once, replay identical evidence, and refuse divergence."""
+        """Append once, replay identical evidence, and refuse divergence.
+
+        Raises ``IdempotencyConflict`` — the kernel's verdict, not one this
+        module reproduces — when the same hand-off identity comes back carrying
+        different content or a different outcome.
+        """
         if not isinstance(receipt, AdapterReceipt):
             raise ValueError("receipt must be an AdapterReceipt")
-        existing = self._exact(receipt)
-        if existing is not None:
-            self._require_same(existing, receipt)
-            return
 
-        try:
-            with self._db.begin_nested():
-                self._db.add(
-                    AdapterReceiptRow.from_receipt(
-                        tenant_id=self._tenant_id,
-                        receipt=receipt,
-                    )
-                )
-                self._db.flush()
-        except IntegrityError:
-            winner = self._exact(receipt)
-            if winner is None:
-                raise
-            self._require_same(winner, receipt)
-
-    def _exact(self, receipt: AdapterReceipt) -> AdapterReceiptRow | None:
-        return self._db.scalar(
-            select(AdapterReceiptRow).where(
-                AdapterReceiptRow.tenant_id == self._tenant_id,
-                AdapterReceiptRow.adapter == receipt.adapter,
-                AdapterReceiptRow.source_owner == receipt.fact.key.source_owner,
-                AdapterReceiptRow.source_ref == receipt.fact.key.source_ref,
-                AdapterReceiptRow.source_version == receipt.fact.source_version,
+        def _write(db: Session) -> Mapping[str, object]:
+            row = AdapterReceiptRow.from_receipt(
+                tenant_id=self._tenant_id,
+                receipt=receipt,
             )
+            db.add(row)
+            db.flush()
+            return {"receipt_id": str(row.id)}
+
+        execute_once(
+            self._db,
+            tenant_id=self._tenant_id,
+            scope=RECEIPT_SCOPE,
+            key=_identity_key(receipt),
+            operation=_write,
+            operation_name=f"receipt:{receipt.adapter}",
+            fingerprint=_handled_fingerprint(receipt),
         )
-
-    @staticmethod
-    def _require_same(existing: AdapterReceiptRow, receipt: AdapterReceipt) -> None:
-        if existing.fingerprint != receipt.fact.fingerprint:
-            raise ReceiptConflict(
-                "the exact adapter fact version already has a different fingerprint"
-            )
-        if existing.outcome != receipt.outcome.value:
-            raise ReceiptConflict(
-                "the exact adapter fact version already has a different outcome"
-            )
