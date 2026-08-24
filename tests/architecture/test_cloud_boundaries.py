@@ -201,9 +201,7 @@ def test_source_imports_only_activated_dotmac_components() -> None:
 def test_ci_round_trip_unwinds_every_composed_lineage_before_kernel() -> None:
     """A newly composed lineage cannot be left out of the downgrade proof."""
     workflow = CI_WORKFLOW.read_text(encoding="utf-8")
-    commands = re.findall(
-        r"poetry run alembic downgrade ([a-z_]+)@base", workflow
-    )
+    commands = re.findall(r"poetry run alembic downgrade ([a-z_]+)@base", workflow)
 
     # Module plane keys are the immutable branch labels used by these exact
     # released lineages. The foundation must be last because every other

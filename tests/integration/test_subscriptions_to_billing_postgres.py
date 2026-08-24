@@ -31,6 +31,7 @@ from dotmac_subscriptions import (
     ExactAmount,
     IntervalUnit,
     OfferPriceInput,
+    OfferPricingMode,
     ProrationPolicy,
     RateBasis,
     SubscriptionVocabularyRegistry,
@@ -189,6 +190,8 @@ def _seed_subscription(db: Session, scope: TenantScope) -> tuple[UUID, UUID]:
             offer_id=None,
             offer_code=offer_code,
             offer_name="Broadband Basic",
+            charge_model_code="recurring.flat",
+            pricing_mode=OfferPricingMode.catalog_price,
             version=1,
             prices=(
                 OfferPriceInput(

@@ -28,8 +28,8 @@ from sqlalchemy import create_engine, pool
 
 from dotmac_cloud.migration_bindings import ASSEMBLY_PREREQUISITE_BINDINGS
 from dotmac_cloud.migration_lineages import compose_lineages
-from dotmac_cloud.module_planes import MODULE_PLANE_SELECTIONS
 from dotmac_cloud.models import Base
+from dotmac_cloud.module_planes import MODULE_PLANE_SELECTIONS
 
 config = context.config
 
