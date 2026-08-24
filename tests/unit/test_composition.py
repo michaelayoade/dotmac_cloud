@@ -59,13 +59,17 @@ def test_release_evidence_is_not_misreported_as_composition() -> None:
         if blocker.code == "released_not_composed"
     } == {
         "dotmac-auth-oidc",
+        "dotmac-billing",
         "dotmac-brand-profiles",
+        "dotmac-collections",
         "dotmac-durable-timers",
         "dotmac-files",
+        "dotmac-fulfillment",
         "dotmac-kernel",
         "dotmac-numbering",
         "dotmac-party",
         "dotmac-payments",
+        "dotmac-subscriptions",
         "dotmac-tax",
         "dotmac-ui",
     }
@@ -81,6 +85,36 @@ def test_kernel_a94_has_immutable_release_coordinates() -> None:
         tag="dotmac-kernel-v0.1.0a94",
         peeled_commit="9e717eb88603f6ef61bded23b2aa468fe4533a95",
     )
+
+
+def test_four_commerce_releases_are_recorded_without_claiming_composition() -> None:
+    expected = {
+        "dotmac-billing": ReleaseEvidence(
+            version="0.1.0a1",
+            tag="dotmac-billing-v0.1.0a1",
+            peeled_commit="92a1626b16d7e068f92536d8cfcb2ef9b6f270c2",
+        ),
+        "dotmac-collections": ReleaseEvidence(
+            version="0.1.0a1",
+            tag="dotmac-collections-v0.1.0a1",
+            peeled_commit="6ecf518a6985b8bf4b163eccb3de2fef171ecccc",
+        ),
+        "dotmac-fulfillment": ReleaseEvidence(
+            version="0.1.0a1",
+            tag="dotmac-fulfillment-v0.1.0a1",
+            peeled_commit="be02e28d11a0ba849b4974273f5a2d4bd7806a4a",
+        ),
+        "dotmac-subscriptions": ReleaseEvidence(
+            version="0.1.0a1",
+            tag="dotmac-subscriptions-v0.1.0a1",
+            peeled_commit="ffe483fb53f12dd7aee400a39e0c85ecf308470f",
+        ),
+    }
+    components = {component.distribution: component for component in load_manifest()}
+
+    for distribution, release in expected.items():
+        assert components[distribution].release == release
+        assert components[distribution].activation is Activation.PENDING
 
 
 def test_production_gate_refuses_the_foundation_state() -> None:

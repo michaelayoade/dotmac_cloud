@@ -5,7 +5,11 @@ description = "Independent Dotmac Cloud product assembly"
 authors = [{ name = "Dotmac" }]
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
-dependencies = []
+dependencies = [
+  "alembic>=1.13,<2.0",
+  "psycopg[binary]>=3.2,<4.0",
+  "sqlalchemy>=2.0,<3.0",
+]
 classifiers = ["Private :: Do Not Upload"]
 
 [tool.poetry]
